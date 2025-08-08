@@ -10,27 +10,7 @@ Cost Structure:
 No built-in cold storage tier. But can use Cosmos DB Cold Tier (Preview): $0.015/GB/month for cold data.
 
 3. Give me an Architecture Diagram, which uses Cosmos DB for hot tier (data less than 3 months) and Azure blob cold storage (for data more than 3 months).
-┌──────────────────────┐         Write         ┌──────────────────┐
-│                      ├───────────────────────►   Azure Cosmos   │
-│   API Service        │                       │     DB (Hot)     │
-│ (Existing System)    │◄───┐                 ├───────┬──────────┤
-└──────┬───────────────┘    │ Read Recent      │ Recent Records   │
-       │ Read Archived      │ (<3 months)      │ (≤90 days)       │
-       ▼                    │                  └────────┬─────────┘
-┌──────────────────────┐    │                           │
-│   Retrieval          │    │                           │ Archive Trigger
-│   Function           │    │                           │ (Time-based/Change Feed)
-└──────┬───────────────┘    │                           ▼
-       │                    │                 ┌───────────────────┐
-       │ Check Blob Storage │                 │  Archival Function│
-       ▼                    │                 └────────┬──────────┘
-┌──────────────────────┐    │                          │
-│ Azure Blob Storage   │    │                          │ Save + Delete
-│ (Cool Tier)          │◄───┘                          ▼
-└──────────────────────┘                 ┌────────────────────────┐
-                               Records   │   Blob Storage (Cool)  │
-                               >3 months │  Archived Records      │
-                                         └────────────────────────┘
+-- Mentioned in Readme file
 
 4. Provide me the Pseudo code for Archieval and Retrieval process.
 -- Mentioned in Readme file
