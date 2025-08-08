@@ -202,6 +202,50 @@ graph LR
 
 ---
 
+
+### 3. Excessive (>500K) Records Cross Threshold Simultaneously
+
+When more than 500,000 billing records suddenly exceed the **90-day archival threshold** at once, the archival process can cause:
+
+- **Cosmos DB RU/s exhaustion** (because of too many reads and deletes in one go)  
+- **Function execution timeouts** (if processing all records in one long batch)  
+- **Blob write latency spikes** (due to excessive parallel writes)  
+
+#### Why This Happens
+This typically occurs after:
+- A **bulk data import** done exactly 90+ days ago  
+- Seasonal billing cycles where huge batches of invoices are generated at once  
+- Migrating historical data into the hot tier without staging archival  
+
+#### Mitigation Strategy
+We break the archival into **smaller, manageable chunks** and use **horizontal scaling** to speed up the process without overloading the system.
+
+**Key Actions:**
+1. **Chunk Processing**  
+   - Instead of processing all 500K+ records at once, we fetch and archive in **chunks of 500–1,000 records** per run.  
+   - This keeps each Function execution short and avoids Cosmos DB RU spikes.  
+
+2. **Parallel Function Instances**  
+   - Use Azure Durable Functions or Functions with **Event Grid / Queue triggers** to allow **dozens of instances** to run in parallel.  
+   - Each instance handles a different set of records (based on partition key ranges).  
+
+3. **Backpressure & Throttling**  
+   - Implement Cosmos DB SDK’s built-in retry logic with exponential backoff if RU throttling occurs.  
+
+#### Flow Chart – Scaled Archival
+```mermaid
+flowchart TD
+    A[Query Records Older Than 90 Days] --> B[Split into Chunks of 500-1000 Records]
+    B --> C[Send Each Chunk to Queue]
+    C --> D[Parallel Function Instances Pick from Queue]
+    D --> E[Archive Chunk to Blob Storage]
+    E --> F{Archive Successful?}
+    F -->|Yes| G[Delete from Cosmos DB]
+    F -->|No| H[Log Failure & Retry Later]
+    G --> I[Log Success]
+    H --> I
+```
+
 ### 4. Disaster Recovery
 
 #### a) Failover to Secondary Region
